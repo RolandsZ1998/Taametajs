@@ -72,14 +72,14 @@
 <div class="actions"><button class="btn primary" onclick="saveSettings()">Saglabāt</button></div>
 </div>
 <div class="section card"><div class="sectionhead"><h2>Kataloga izcenojumi</h2><button class="btn small" onclick="openCatalog()">Rediģēt</button></div><p style="color:var(--muted);line-height:1.5">Šeit vari pielāgot katra darba noklusēto materiālu pašizmaksu un darba stundas. Tavas cenas tiek saglabātas šajā ierīcē un tiek izmantotas arī Smart Estimate.</p></div>
-<div class="section card"><h2>Par QuoteAI</h2><p style="color:var(--muted);line-height:1.5">Profesionāls kabatas tāmetētājs. Šī versija darbojas lokāli bez servera. Vēlāk varam pievienot mākoņkontu, īstu AI, cenu datubāzi un komandas funkcijas.</p></div>
+<div class="section card"><h2>Par QuoteAI</h2><p style="color:var(--muted);line-height:1.5">Profesionāls kabatas tāmetētājs. AI analīze darbojas caur drošu servera funkciju; API atslēga nekad netiek glabāta telefonā.</p></div>
 </section>
 
 <section id="estimate" class="page">
 <div class="top"><div class="title"><h1>Jauna tāme</h1><p id="estimateSubtitle">Ievadi objektu un ļauj sistēmai uzbūvēt pirmo aprēķinu.</p></div><button class="btn" onclick="show('dashboard')">Atcelt</button></div>
 
 <div class="aihero">
-<h2>🧠 Smart Estimate</h2><p>Apraksti darbu saviem vārdiem. Sistēma atpazīs tipiskus būvdarbus un izveidos sākuma tāmi.</p>
+<h2>🧠 Smart Estimate</h2><p>Apraksti visus darbus saviem vārdiem. AI sadalīs tos atsevišķās pozīcijās, atradīs katalogā atbilstošos darbus un izmantos tavas pielāgotās cenas.</p>
 <div class="airow"><textarea id="smartText" placeholder="Piem.: 120 m² jumts. Jānoņem vecais segums, jāmaina latojums, jāliek difūzijas membrāna un metāla jumts. 2 cilvēki, 5 dienas."></textarea><button id="voiceBtn" class="voice" onclick="voiceInput()">🎙️</button></div>
 <div class="actions" style="margin-top:9px"><button class="btn gold" onclick="smartBuild()">Izveidot tāmes projektu</button></div><div id="aiStatus" class="ai-status"></div>
 </div>
@@ -166,7 +166,7 @@
 <div id="toast" class="toast"></div>
 
 <script>
-const KEY='quoteai_pro_v2', SET='quoteai_pro_settings_v1', CAT='quoteai_catalog_prices_v1';
+const KEY='quoteai_pro_v4', SET='quoteai_pro_settings_v1', CAT='quoteai_catalog_prices_v1';
 let catalogPrices=JSON.parse(localStorage.getItem(CAT)||'{}');
 function effectiveCatalog(x){const o=catalogPrices[x.id]||{};return {...x,cost:o.cost!==undefined?Number(o.cost):x.cost,labor:o.labor!==undefined?Number(o.labor):x.labor};}
 function saveCatalogPrices(){localStorage.setItem(CAT,JSON.stringify(catalogPrices));}
@@ -231,20 +231,14 @@ function lineSell(x,d){let c=calc(d), b=lineBase(x), share=c.base?c.markup*(b/c.
 function renderItems(){
  let el=$('items'); if(!draft){el.innerHTML='';return}
  if(!draft.items.length){el.innerHTML='<div class="empty">Pagaidām nav pozīciju.<br>Pievieno darbu no kataloga vai izmanto Smart Estimate.</div>';return}
- el.innerHTML=draft.items.map((x,i)=>{
-   let sb=lineSell(x,draft), su=(Number(x.qty)||0)?sb/Number(x.qty):0;
-   let review=x.needsReview?`<span class="chip" style="margin-left:6px;border-color:#d69e2e;color:#9a6700">⚠️ Pārbaudīt</span>`:`<span class="chip" style="margin-left:6px;border-color:#2f855a;color:#276749">✓ Atpazīts</span>`;
-   let cat=x.category?`<span style="color:var(--muted);margin-left:6px">${esc(x.category)}</span>`:'';
-   let reason=x.reviewReason?`<small style="display:block;color:#9a6700;margin-top:4px">${esc(x.reviewReason)}</small>`:'';
-   return `<div class="line"><div class="linegrid">
- <div><label class="label">POZĪCIJA</label><input class="name" value="${esc(x.name)}" onchange="itemChange(${i},'name',this.value)"><div style="margin-top:5px">${review}${cat}</div></div>
- <div><label class="label">DAUDZ.</label><input type="number" step=".01" value="${x.qty ?? ''}" onchange="itemChange(${i},'qty',this.value)"></div>
- <div><label class="label">VIEN.</label><input value="${esc(x.unit||'')}" onchange="itemChange(${i},'unit',this.value)"></div>
- <div><label class="label">PAŠIZMAKSA / VIEN.</label><input type="number" step=".01" value="${x.cost ?? 0}" onchange="itemChange(${i},'cost',this.value)"></div>
+ el.innerHTML=draft.items.map((x,i)=>{let sb=lineSell(x,draft), su=(Number(x.qty)||0)?sb/Number(x.qty):0;return `<div class="line"><div class="linegrid">
+ <div><label class="label">POZĪCIJA</label><input class="name" value="${esc(x.name)}" onchange="itemChange(${i},'name',this.value)"></div>
+ <div><label class="label">DAUDZ.</label><input type="number" step=".01" value="${x.qty}" onchange="itemChange(${i},'qty',this.value)"></div>
+ <div><label class="label">VIEN.</label><input value="${esc(x.unit)}" onchange="itemChange(${i},'unit',this.value)"></div>
+ <div><label class="label">PAŠIZMAKSA / VIEN.</label><input type="number" step=".01" value="${x.cost}" onchange="itemChange(${i},'cost',this.value)"></div>
  <button class="x" onclick="removeItem(${i})">×</button></div>
- <small>Darbs: ${Number(x.labor||0).toFixed(2)} h/${esc(x.unit||'vien.')} × ${money(x.laborRate||25)}/h · pozīcijas pašizmaksa ${money(lineBase(x))}</small>
- <small class="sellhint">Klienta cena šai pozīcijai: ${money(su)} / ${esc(x.unit||'vien.')} · kopā ${money(sb)} bez PVN</small>${reason}</div>`;
- }).join('');
+ <small>Darbs: ${Number(x.labor||0).toFixed(2)} h/${esc(x.unit)} × ${money(x.laborRate||25)}/h · pozīcijas pašizmaksa ${money(lineBase(x))}</small>
+ <small class="sellhint">Klienta cena šai pozīcijai: ${money(su)} / ${esc(x.unit)} · kopā ${money(sb)} bez PVN</small></div>`}).join('');
 }
 
 function itemChange(i,k,v){draft.items[i][k]=(k==='name'||k==='unit')?v:Number(v)||0;recalc()}
@@ -260,53 +254,38 @@ function recalc(){
  else if(c.sub>0){box.className='marginbox warn';box.innerHTML=`⚠️ <b>Marža ir par zemu.</b> Lai sasniegtu ${draft.targetMargin}% maržu, ieteicamā cena bez PVN būtu <b>${money(c.targetPrice)}</b> — par ${money(Math.max(0,diff))} vairāk.`}
  else {box.className='marginbox bad';box.textContent='Pievieno pozīcijas ar izmaksām, lai aprēķinātu maržu.'}
 }
-function normalizeAiItem(item){
- const q=(item&&item.quantity!==null&&item.quantity!==undefined)?Number(item.quantity):null;
- const unit=String(item?.unit||'gab.').trim();
- return {name:String(item?.work||'Neidentificēts darbs').trim(),qty:Number.isFinite(q)?q:'',unit,category:String(item?.category||'').trim(),sourceText:String(item?.sourceText||'').trim(),confidence:Number(item?.confidence||0),needsReview:Boolean(item?.needsReview)||!Number.isFinite(q)||q<=0,reviewReason:String(item?.reviewReason||(!Number.isFinite(q)?'Daudzums nav norādīts — nepieciešams uzmērīt.':'')).trim(),catalogId:null,cost:0,labor:0,laborRate:25};
-}
-function normalizeMatchText(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\b(mm|cm|m2|m3|m|gab|kg|pcs|stuk|stuks)\b/g,' ').replace(/\s+/g,' ').trim()}
-function catalogMatch(item){
- const text=normalizeMatchText(item.name+' '+item.sourceText);
- const rules=[
-  [/gip(?:s|skarton)|drywall/, [57,58,59]], [/starpsien/, [61,10]], [/gazbeton|aerated concrete|bloku mur/, [56]], [/apmes|apmest|plaster/, [63,62]], [/izlidz|korekc|nivel/, [62,85]], [/grunt/, [95,108]], [/spaktele|putty/, [96,97,68]], [/slip|sand/, [98]], [/krasa|paint/, [103,104,102]], [/grida.*fliz|floor.*tile|flize/, [92]], [/vinil/, [90]], [/laminat/, [88]], [/parket/, [89]], [/gridlist|skirting/, [93]], [/jumta.*seg|roof.*cover|metal.*roof|skard/, [46,49,47]], [/latoj/, [42]], [/membran/, [44]], [/tvaik/, [45]], [/siltin/, [71,74,75,77]], [/logs|window/, [109,111,113]], [/durv|door/, [110,112]], [/koka.*karkass|timber.*frame/, [32,34,36]], [/fasad/, [77,78,79,80]], [/demont/, [84,10,11,12,13]], [/elektr|rozet|sledz|kabel/, [116,118,119,117]], [/santeh|izliet|pods|dusa|vanna|jaucej/, [124,127,128,129,130]], [/terase|terrace/, [145]], [/zogs|fence/, [147]], [/brug|paving/, [139]]
- ];
- for(const [re,ids] of rules){if(re.test(text)){for(const id of ids){const raw=catalog.find(x=>x.id===id);if(raw)return effectiveCatalog(raw)}}}
- // Fuzzy token overlap fallback, but never force a weak match.
- const tokens=text.split(/\s+/).filter(t=>t.length>2);
- let best=null,bestScore=0;
- for(const raw of catalog){const ct=normalizeMatchText(raw.name+' '+raw.cat).split(/\s+/).filter(t=>t.length>2);let score=0;for(const t of tokens){if(ct.some(c=>c===t||c.includes(t)||t.includes(c)))score+=1}const norm=score/Math.max(1,Math.min(tokens.length,ct.length));if(score>=2&&norm>bestScore){best=raw;bestScore=norm}}
- return bestScore>=0.34&&best?effectiveCatalog(best):null;
-}
-function applyAiEstimate(result,raw){
- const aiItems=Array.isArray(result?.items)?result.items:[];
- draft.items=aiItems.map(normalizeAiItem);
- let matched=0,review=0;
- draft.items.forEach(x=>{const m=catalogMatch(x);if(m){x.catalogId=m.id;x.name=x.name||m.name;x.cost=m.cost;x.labor=m.labor;x.laborRate=25;matched++;}else{review++;x.needsReview=true;x.reviewReason=x.reviewReason||'Kataloga atbilstoša pozīcija nav atrasta — pārbaudi manuāli.';x.cost=0;x.labor=0;x.laborRate=25;}});
- const assumptions=Array.isArray(result?.assumptions)?result.assumptions.filter(Boolean):[];
- draft.project=draft.project||projectNameFromText(raw.toLowerCase());$('eProject').value=draft.project;renderItems();recalc();
- const total=draft.items.length, missing=draft.items.filter(x=>!x.qty||Number(x.qty)<=0).length;
- $('aiStatus').innerHTML=`<div class="assumption"><b>Smart Estimate:</b> ${total} pozīcijas atrastas · <span style="color:#276749">${matched} katalogā atrastas</span> · <span style="color:#9a6700">${review} jāpārbauda</span> · ${missing} bez daudzuma.${assumptions.length?'<br><br>'+assumptions.map(esc).join('<br>'):''}</div>`;
- toast(`Atrastas ${total} pozīcijas. Pārbaudi atzīmētās pozīcijas.`);
-}
 async function smartBuild(){
  const raw=$('smartText').value.trim();
  if(!raw){toast('Apraksti objektu vispirms.');return}
- const btn=document.querySelector('.btn.gold[onclick="smartBuild()"]');
+ if(window.__aiBusy)return;
+ window.__aiBusy=true;
+ const btn=document.querySelector('.aihero .btn.gold');
+ const original=btn?btn.textContent:'Izveidot tāmes projektu';
  if(btn){btn.disabled=true;btn.textContent='⏳ Analizē visu tekstu...'}
- $('aiStatus').innerHTML='<div class="assumption">🧠 Analizēju visu ievadīto tekstu un sadalu atsevišķās darba pozīcijās…</div>';
+ $('aiStatus').innerHTML='<div class="assumption">🧠 Analizēju visu ievadīto tekstu un sadalu atsevišķās darba pozīcijās...</div>';
  try{
-   const catalogHint=catalog.map(x=>({id:x.id,cat:x.cat,name:x.name,unit:x.unit}));
-   const r=await fetch('/api/estimate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:raw,catalog:catalogHint})});
-   const j=await r.json();
-   if(!r.ok)throw new Error(j.error||'AI tāmes analīze neizdevās.');
-   if(!j.items||!Array.isArray(j.items))throw new Error('AI neatgrieza strukturētu pozīciju sarakstu.');
-   applyAiEstimate(j,raw);
+   const catalogForAI=catalog.map(x=>({id:x.id,cat:x.cat,name:x.name,unit:x.unit}));
+   const r=await fetch('/api/estimate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:raw,catalog:catalogForAI})});
+   let j={};try{j=await r.json()}catch(_){j={error:'Serveris atgrieza nederīgu atbildi.'}}
+   if(!r.ok)throw new Error(j.error||`AI servera kļūda (${r.status})`);
+   if(!j.result||!Array.isArray(j.result.items))throw new Error('AI neatgrieza derīgu tāmes struktūru.');
+   draft.items=[];
+   const assumptions=Array.isArray(j.result.assumptions)?j.result.assumptions:[];
+   for(const item of j.result.items){
+     const qty=Number(item.qty);if(!Number.isFinite(qty)||qty<=0)continue;
+     const id=Number(item.catalogId)||0, rawCat=catalog.find(x=>x.id===id);
+     if(rawCat){const x=effectiveCatalog(rawCat);draft.items.push({catalogId:x.id,name:x.name,qty,unit:x.unit,cost:x.cost,labor:x.labor,laborRate:25,aiNote:item.notes||'',aiConfidence:Number(item.confidence)||0})}
+     else{draft.items.push({catalogId:null,name:String(item.name||item.sourceText||'Neatpazīts darbs').trim(),qty,unit:String(item.unit||'gab.').trim(),cost:0,labor:0,laborRate:25,aiNote:item.notes||'Nav atrasta atbilstoša kataloga pozīcija — cena jāievada manuāli.',aiConfidence:Number(item.confidence)||0})}
+   }
+   if(!draft.items.length)throw new Error('AI neatrada nevienu darba pozīciju. Izmanto katalogu vai precizē aprakstu.');
+   draft.project=draft.project||String(j.result.project||'Būvdarbi');$('eProject').value=draft.project;renderItems();recalc();
+   const notes=[...assumptions],manual=draft.items.filter(x=>!x.catalogId);
+   if(manual.length)notes.unshift(`⚠️ ${manual.length} pozīcijai nav atrasta droša kataloga pozīcija — cenu pārbaudi manuāli.`);
+   $('aiStatus').innerHTML=notes.length?'<div class="assumption">'+notes.map(esc).join('<br>')+'</div>':'✓ AI izveidoja sākuma tāmi. Pārbaudi daudzumus, pozīcijas un cenas pirms saglabāšanas.';
+   toast(`Atrastas ${draft.items.length} darba pozīcijas.`);
  }catch(e){
-   console.error(e);
-   $('aiStatus').innerHTML='<div class="assumption">⚠️ Smart Estimate AI nav pieejams. Vari izmantot katalogu manuāli. Nekas netika izdomāts automātiski.</div>';
-   toast(e.message||'Neizdevās analizēt objektu.');
- }finally{if(btn){btn.disabled=false;btn.textContent='Izveidot tāmes projektu'}}
+   console.error(e);$('aiStatus').innerHTML='<div class="assumption">⚠️ <b>Smart Estimate neizdevās.</b><br>'+esc(e.message||'Nezināma kļūda')+'<br><button class="btn small" style="margin-top:8px" onclick="smartBuild()">Mēģināt vēlreiz</button></div>';toast('Smart Estimate neizdevās.');
+ }finally{window.__aiBusy=false;if(btn){btn.disabled=false;btn.textContent=original}}
 }
 
 function projectNameFromText(t){if(/jumt/.test(t))return'Jumta darbi';if(/krās/.test(t))return'Krāsošanas darbi';if(/grīd/.test(t))return'Grīdas darbi';if(/fasād/.test(t))return'Fasādes darbi';if(/ģip/.test(t))return'Ģipškartona darbi';if(/durv/.test(t))return'Durvju darbi';if(/log/.test(t))return'Logu darbi';if(/santeh/.test(t))return'Santehnikas darbi';return'Būvdarbi'}

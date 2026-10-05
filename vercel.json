@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/estimate.js": { "maxDuration": 60 },
+    "api/transcribe.js": { "maxDuration": 60 }
+  }
+}
